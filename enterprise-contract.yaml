@@ -120,24 +120,42 @@ spec:
             value: verify-enterprise-contract
           - name: kind
             value: task
-    - name: send-slack-notification
+    - name: prepare-slack-message
       params:
-      - name: message
-        value: |
-          enterprise contract results (test)
-          ```
-          $(tasks.verify.results.TEST_OUTPUT)
-          ```  
-      - name: secret-name
-        value: rhoai-konflux-secret
-      - name: key-name
-        value: slack-webhook
-      taskRef:
-        params:
-        - name: name
-          value: slack-webhook-notification
-        - name: bundle
-          value: quay.io/konflux-ci/tekton-catalog/task-slack-webhook-notification:0.1@sha256:dc17b70633363d78414b8c06dc1660d25742935f106a6116995638e1210c2730
-        - name: kind
-          value: task
-        resolver: bundles
+      - name: verify-results
+        value: "$(tasks.verify.results.TEST_OUTPUT)"
+      runAfter: 
+      - verify
+      taskSpec:
+        params: 
+        - name: verify-results
+        results:
+        - description: Output text
+          name: task-output
+        steps:
+        - image: alpine
+          name: step
+          script: |
+            echo "$(params.verify-results)"
+            echo "$(params.verify-results)" > "$(results.task-output.path)"
+#    - name: send-slack-notification
+#      params:
+#      - name: message
+#        value: |
+#          enterprise contract results (test)
+#          ```
+#          $(tasks.verify.results.TEST_OUTPUT)
+#          ```  
+#      - name: secret-name
+#        value: rhoai-konflux-secret
+#      - name: key-name
+#        value: slack-webhook
+#      taskRef:
+#        params:
+#        - name: name
+#          value: slack-webhook-notification
+#        - name: bundle
+#          value: quay.io/konflux-ci/tekton-catalog/task-slack-webhook-notification:0.1@sha256:dc17b70633363d78414b8c06dc1660d25742935f106a6116995638e1210c2730
+#        - name: kind
+#          value: task
+#        resolver: bundles
