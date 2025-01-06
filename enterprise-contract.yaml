@@ -85,6 +85,7 @@ spec:
       value: "$(tasks.verify.results.TEST_OUTPUT)"
   tasks:
     - name: verify
+      onError: continue
       params:
         - name: POLICY_CONFIGURATION
           value: "$(params.POLICY_CONFIGURATION)"
@@ -122,14 +123,15 @@ spec:
     - name: send-slack-notification
       params:
       - name: message
-        value: "enterprise contract results (test)"
+        value: |
+          enterprise contract results (test)
+          ```
+          $(tasks.verify.results.TEST_OUTPUT)
+          ```  
       - name: secret-name
         value: rhoai-konflux-secret
       - name: key-name
         value: slack-webhook
-      - name: files
-        value: 
-        - "$(tasks.verify.results.TEST_OUTPUT.path)"
       taskRef:
         params:
         - name: name
