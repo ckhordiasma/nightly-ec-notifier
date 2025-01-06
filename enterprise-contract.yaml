@@ -137,6 +137,9 @@ spec:
           name: step
           script: |
             echo "$(params.verify-results)"
+            pwd
+            echo "/tekton:"
+            tree /tekton
             echo "$(params.verify-results)" > "$(results.task-output.path)"
 #    - name: send-slack-notification
 #      params:
