@@ -82,7 +82,13 @@ spec:
       default: "false"
   workspaces:
     - name: workspace
-      optional: true
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
   results:
     - name: TEST_OUTPUT
       value: "$(tasks.verify.results.TEST_OUTPUT)"
