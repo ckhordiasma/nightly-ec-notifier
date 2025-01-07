@@ -417,36 +417,6 @@ spec:
 
               MESSAGE="Testing"
 
-              # ---------
-              #  HELPERS
-              # ---------
-
-              function concat {
-                  cat << EOM
-              $1
-              $2
-              EOM
-              }
-
-              # ---------
-              #  DUMPERS
-              # ---------
-
-              function dumpSeparator {
-                echo "-----------------------------------------"
-              }
-
-              function dumpFile {
-                filePath=$1
-
-                cat << EOM
-              *${filePath}:*
-              \`\`\`
-              $(cat "${filePath}")
-              \`\`\`
-              EOM
-              }
-
               # -------------------
               #  PARAMS VALIDATION
               # -------------------
@@ -463,17 +433,19 @@ spec:
               # ------
               FILES=("${HOME}/report-json.json")
               slack_message="${MESSAGE}"
+              slack_payload=$(jq --null-input '.type = "rich_text" | .elements = []')
 
-              if [ ${#FILES[@]} -ne 0 ]; then
-                  slack_message=$(concat "${slack_message}" "$(dumpSeparator)")
-              fi
+              slack_message_payload=$(jq --null-input --arg X "$slack_message" '{type: "text", text: $X}')
+              slack_message_wrapper_payload=$(jq --null-input --argjson X "$slack_message_payload" '.type = "rich_text_section" | .elements += [$X]')
+              slack_payload=$(echo "$slack_payload" | jq --argjson X "$slack_message_wrapper_payload" '.elements += [$X]')
 
               for file in "${FILES[@]}"; do
-                  content=$(dumpFile "${file}")
-                  slack_message=$(concat "${slack_message}" "${content}")
+                  file_payload=$(jq --null-input --arg X "$(cat $file)" '{type: "text", text: $X}')
+                  file_wrapper_payload=$(jq --null-input --argjson X "$file_payload" '.type = "rich_text_preformatted" | .elements += [$X]')
+                  slack_payload=$(echo "$slack_payload" | jq --argjson X "$file_wrapper_payload"  '.elements += [$X]')
               done
               
-              data=$(jq --compact-output --null-input --arg message "$slack_message" '{text: $message}')
+              data=$(echo $slack_payload | jq --compact-output '{blocks: [.]}')
 
               curl -X POST -H 'Content-type: application/json' --data "${data}" "$WEBHOOK_URL"             
 
