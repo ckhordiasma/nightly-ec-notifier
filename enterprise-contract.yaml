@@ -392,6 +392,13 @@ spec:
                 .result == "SUCCESS" or .result == "WARNING" or ($strict | not)
               - "$(results.TEST_OUTPUT.path)"
 
+          - name: override-results
+            image: quay.io/enterprise-contract/ec-cli:snapshot
+            command: [cp]
+            args:
+              - "$(params.HOMEDIR)/report-json.json"
+              - "$(results.TEST_OUTPUT.path)"
+
         volumes:
           - name: trusted-ca
             configMap:
@@ -416,8 +423,7 @@ spec:
         - image: alpine
           name: step
           script: |
-            # echo ""
-            # echo "" > ""
+            echo "$(params.verify-results)"
             echo "result" > "$(results.task-output.path)"
 #    - name: send-slack-notification
 #      params:
