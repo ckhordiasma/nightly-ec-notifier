@@ -5,9 +5,9 @@
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
-  name: enterprise-contract
+  name: enterprise-contract-notifier
   labels:
-    build.appstudio.redhat.com/pipeline: "enterprise-contract"
+    build.appstudio.redhat.com/pipeline: "enterprise-contract-notifier"
 spec:
   params:
     - name: SNAPSHOT
@@ -79,13 +79,18 @@ spec:
 
         Setting to false is useful on specific conditions but will always mark the integration test as successful and
         humans will tend to ignore the test results if they failed. Use with caution.
-      default: "true"
+      default: "false"
+  workspaces:
+    - name: workspace
+      optional: true
   results:
     - name: TEST_OUTPUT
       value: "$(tasks.verify.results.TEST_OUTPUT)"
   tasks:
     - name: verify
-      onError: continue
+      workspaces:
+        - name: data
+          workspace: workspace
       params:
         - name: POLICY_CONFIGURATION
           value: "$(params.POLICY_CONFIGURATION)"
@@ -121,6 +126,8 @@ spec:
           - name: kind
             value: task
     - name: prepare-slack-message
+      workspaces:
+        - name: workspace
       params:
       - name: verify-results
         value: "$(tasks.verify.results.TEST_OUTPUT)"
@@ -136,11 +143,10 @@ spec:
         - image: alpine
           name: step
           script: |
-            echo "$(params.verify-results)"
-            pwd
-            echo "/tekton:"
-            tree /tekton
-            echo "$(params.verify-results)" > "$(results.task-output.path)"
+            # echo ""
+            tree /workspace
+            # echo "" > ""
+            echo "result" > "$(results.task-output.path)"
 #    - name: send-slack-notification
 #      params:
 #      - name: message
