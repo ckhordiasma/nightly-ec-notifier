@@ -415,7 +415,7 @@ spec:
             script: |
               #!/usr/bin/env bash
 
-              MESSAGE=$(cat ${HOME}/report-json.json)
+              MESSAGE="Testing"
 
               # ---------
               #  HELPERS
@@ -461,7 +461,7 @@ spec:
               # ------
               #  DUMP
               # ------
-
+              FILES=("${HOME}/report-json.json")
               slack_message="${MESSAGE}"
 
               if [ ${#FILES[@]} -ne 0 ]; then
@@ -472,7 +472,7 @@ spec:
                   content=$(dumpFile "${file}")
                   slack_message=$(concat "${slack_message}" "${content}")
               done
-
+              
               data=$(jq --compact-output --null-input --arg message "$slack_message" '{text: $message}')
 
               curl -X POST -H 'Content-type: application/json' --data "${data}" "$WEBHOOK_URL"             - "$(results.TEST_OUTPUT.path)"
