@@ -82,13 +82,6 @@ spec:
       default: "false"
   workspaces:
     - name: workspace
-      volumeClaimTemplate:
-        spec:
-          accessModes:
-            - ReadWriteOnce
-          resources:
-            requests:
-              storage: 1Gi
   results:
     - name: TEST_OUTPUT
       value: "$(tasks.verify.results.TEST_OUTPUT)"
@@ -164,7 +157,7 @@ spec:
 #      - name: secret-name
 #        value: rhoai-konflux-secret
 #      - name: key-name
-#        value: slack-webhook
+#        value: slack-poc-webhook
 #      taskRef:
 #        params:
 #        - name: name
