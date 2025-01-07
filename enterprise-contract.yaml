@@ -412,8 +412,6 @@ spec:
               - name: KEY_NAME
                 value: $(params.slack-secret-key-name)
             args:
-              - --files
-              - $(params.files[*])
             script: |
               #!/usr/bin/env bash
 
@@ -449,26 +447,6 @@ spec:
               EOM
               }
 
-              # --------------
-              #  ARGS PARSING
-              # --------------
-
-              echo "Parsing $*"
-
-              FILES=()
-
-              while [[ $# -gt 0 ]]; do
-                case $1 in
-                --files)
-                  shift
-                  while [[ $# -gt 0 ]] && ! [[ "$1" =~ ^--.* ]]; do
-                    FILES+=("$1")
-                    shift
-                  done
-                  ;;
-                esac
-              done
-
               # -------------------
               #  PARAMS VALIDATION
               # -------------------
@@ -484,7 +462,7 @@ spec:
               #  DUMP
               # ------
 
-              slack_message=${MESSAGE}
+              slack_message="${MESSAGE}"
 
               if [ ${#FILES[@]} -ne 0 ]; then
                   slack_message=$(concat "${slack_message}" "$(dumpSeparator)")
