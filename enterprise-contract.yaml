@@ -10,6 +10,12 @@ metadata:
     build.appstudio.redhat.com/pipeline: "enterprise-contract-notifier"
 spec:
   params:
+    - name: slack-secret-name
+      type: string
+      default: rhoai-konflux-secret
+    - name: slack-secret-key-name
+      type: string
+      default: slack-poc-webhook
     - name: SNAPSHOT
       type: string
       description: |
@@ -392,12 +398,106 @@ spec:
                 .result == "SUCCESS" or .result == "WARNING" or ($strict | not)
               - "$(results.TEST_OUTPUT.path)"
 
-          - name: override-results
-            image: quay.io/enterprise-contract/ec-cli:snapshot
-            command: [cp]
+          - name: send-message
+            image: quay.io/konflux-ci/appstudio-utils:48c311af02858e2422d6229600e9959e496ddef1@sha256:91ddd999271f65d8ec8487b10f3dd378f81aa894e11b9af4d10639fd52bba7e8
+            # per https://kubernetes.io/docs/concepts/containers/images/#imagepullpolicy-defaulting
+            # the cluster will set imagePullPolicy to IfNotPresent
+            volumeMounts:
+              - name: webhook-secret
+                mountPath: "/etc/secrets"
+                readOnly: true
+            env:
+              - name: HOME
+                value: $(params.HOMEDIR)
+              - name: KEY_NAME
+                value: $(params.slack-secret-key-name)
             args:
-              - "$(params.HOMEDIR)/report-json.json"
-              - "$(results.TEST_OUTPUT.path)"
+              - --files
+              - $(params.files[*])
+            script: |
+              #!/usr/bin/env bash
+
+              MESSAGE=$(cat ${HOME}/report-json.json)
+
+              # ---------
+              #  HELPERS
+              # ---------
+
+              function concat {
+                  cat << EOM
+              $1
+              $2
+              EOM
+              }
+
+              # ---------
+              #  DUMPERS
+              # ---------
+
+              function dumpSeparator {
+                echo "-----------------------------------------"
+              }
+
+              function dumpFile {
+                filePath=$1
+
+                cat << EOM
+              *${filePath}:*
+              \`\`\`
+              $(cat "${filePath}")
+              \`\`\`
+              EOM
+              }
+
+              # --------------
+              #  ARGS PARSING
+              # --------------
+
+              echo "Parsing $*"
+
+              FILES=()
+
+              while [[ $# -gt 0 ]]; do
+                case $1 in
+                --files)
+                  shift
+                  while [[ $# -gt 0 ]] && ! [[ "$1" =~ ^--.* ]]; do
+                    FILES+=("$1")
+                    shift
+                  done
+                  ;;
+                esac
+              done
+
+              # -------------------
+              #  PARAMS VALIDATION
+              # -------------------
+
+              if [ -f "/etc/secrets/$KEY_NAME" ]; then
+                WEBHOOK_URL=$(cat "/etc/secrets/$KEY_NAME")
+              else
+                echo "Secret not defined properly"
+                exit 1
+              fi
+
+              # ------
+              #  DUMP
+              # ------
+
+              slack_message=${MESSAGE}
+
+              if [ ${#FILES[@]} -ne 0 ]; then
+                  slack_message=$(concat "${slack_message}" "$(dumpSeparator)")
+              fi
+
+              for file in "${FILES[@]}"; do
+                  content=$(dumpFile "${file}")
+                  slack_message=$(concat "${slack_message}" "${content}")
+              done
+
+              data=$(jq --compact-output --null-input --arg message "$slack_message" '{text: $message}')
+
+              curl -X POST -H 'Content-type: application/json' --data "${data}" "$WEBHOOK_URL"             - "$(results.TEST_OUTPUT.path)"
 
         volumes:
           - name: trusted-ca
@@ -406,25 +506,11 @@ spec:
               items:
                 - key: $(params.CA_TRUST_CONFIG_MAP_KEY)
                   path: ca-bundle.crt
+          - name: webhook-secret
+            secret:
+              secretName: $(params.slack-secret-name)
               optional: true
-    - name: prepare-slack-message
-      params:
-      - name: verify-results
-        value: "$(tasks.verify.results.TEST_OUTPUT)"
-      runAfter: 
-      - verify
-      taskSpec:
-        params: 
-        - name: verify-results
-        results:
-        - description: Output text
-          name: task-output
-        steps:
-        - image: alpine
-          name: step
-          script: |
-            echo "$(params.verify-results)"
-            echo "result" > "$(results.task-output.path)"
+
 #    - name: send-slack-notification
 #      params:
 #      - name: message
@@ -433,10 +519,6 @@ spec:
 #          ```
 #          $(tasks.verify.results.TEST_OUTPUT)
 #          ```  
-#      - name: secret-name
-#        value: rhoai-konflux-secret
-#      - name: key-name
-#        value: slack-poc-webhook
 #      taskRef:
 #        params:
 #        - name: name
