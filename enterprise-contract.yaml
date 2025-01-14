@@ -428,10 +428,15 @@ spec:
                 exit 1
               fi
 
+              # FORMAT REPORT
+              cat "${HOME}/report-json.json" | jq '[.components[]| {name,containerImage,success,violations,warnings}]' | yq -P > "${HOME}/report-slack.yaml"
+
+
               # ------
               #  DUMP
               # ------
-              FILES=("${HOME}/report-json.json")
+              FILES=("${HOME}/report-json.json" "${HOME}/report-slack.yaml")
+
               slack_message="${MESSAGE}"
               slack_payload=$(jq --null-input '.type = "rich_text" | .elements = []')
 
@@ -448,7 +453,7 @@ spec:
               data=$(echo $slack_payload | jq --compact-output '{blocks: [.]}')
 
               curl -X POST -H 'Content-type: application/json' --data "${data}" "$WEBHOOK_URL"             
-
+              # curl -s -H "Authorization: Bearer $TOKEN" 'https://quay.io/api/v1/repository/rhoai/odh-rhel8-operator/manifest/sha256:e763c553dddef30e4d0cab7f1843d32c8f84a93eae06200d9339326f6aa134a9/security' | jq '.data.Layer.Features[].Vulnerabilities[] | select(.Severity == "High")'
         volumes:
           - name: trusted-ca
             configMap:
@@ -461,20 +466,3 @@ spec:
               secretName: $(params.slack-secret-name)
               optional: true
 
-#    - name: send-slack-notification
-#      params:
-#      - name: message
-#        value: |
-#          enterprise contract results (test)
-#          ```
-#          $(tasks.verify.results.TEST_OUTPUT)
-#          ```  
-#      taskRef:
-#        params:
-#        - name: name
-#          value: slack-webhook-notification
-#        - name: bundle
-#          value: quay.io/konflux-ci/tekton-catalog/task-slack-webhook-notification:0.1@sha256:dc17b70633363d78414b8c06dc1660d25742935f106a6116995638e1210c2730
-#        - name: kind
-#          value: task
-#        resolver: bundles
