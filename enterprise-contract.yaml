@@ -445,9 +445,10 @@ spec:
               slack_payload=$(echo "$slack_payload" | jq --argjson X "$slack_message_wrapper_payload" '.elements += [$X]')
 
               for file in "${FILES[@]}"; do
-                  file_payload=$(jq --null-input --arg X "$(cat $file)" '{type: "text", text: $X}')
-                  file_wrapper_payload=$(jq --null-input --argjson X "$file_payload" '.type = "rich_text_preformatted" | .elements += [$X]')
-                  slack_payload=$(echo "$slack_payload" | jq --argjson X "$file_wrapper_payload"  '.elements += [$X]')
+                  jq -n --rawfile X "$file" '{type: "text", text: $X}' > file_payload.json
+                  # slurpfile produces an array
+                  jq -n --slurpfile X "file_payload.json" '{type: "rich_text_preformatted", elements: $X}' > file_wrapper_payload.json
+                  slack_payload=$(echo "$slack_payload" | jq --slurpfile X "file_wrapper_payload.json"  '.elements += $X')
               done
               
               data=$(echo $slack_payload | jq --compact-output '{blocks: [.]}')
