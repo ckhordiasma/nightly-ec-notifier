@@ -451,9 +451,9 @@ spec:
                   slack_payload=$(echo "$slack_payload" | jq --slurpfile X "file_wrapper_payload.json"  '.elements += $X')
               done
               
-              data=$(echo $slack_payload | jq --compact-output '{blocks: [.]}')
+              echo $slack_payload | jq --compact-output '{blocks: [.]}' > request_data.json
 
-              curl -X POST -H 'Content-type: application/json' --data "${data}" "$WEBHOOK_URL"             
+              curl -X POST -H 'Content-type: application/json' --data @request_data.json "$WEBHOOK_URL"             
               # curl -s -H "Authorization: Bearer $TOKEN" 'https://quay.io/api/v1/repository/rhoai/odh-rhel8-operator/manifest/sha256:e763c553dddef30e4d0cab7f1843d32c8f84a93eae06200d9339326f6aa134a9/security' | jq '.data.Layer.Features[].Vulnerabilities[] | select(.Severity == "High")'
         volumes:
           - name: trusted-ca
