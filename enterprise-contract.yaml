@@ -435,7 +435,7 @@ spec:
               # ------
               #  DUMP
               # ------
-              FILES=("${HOME}/report-json.json" "${HOME}/report-slack.yaml")
+              FILES=("${HOME}/report-slack.yaml")
 
               slack_message="${MESSAGE}"
               slack_payload=$(jq --null-input '.type = "rich_text" | .elements = []')
