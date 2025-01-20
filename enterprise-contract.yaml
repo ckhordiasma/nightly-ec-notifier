@@ -414,6 +414,10 @@ spec:
                 value: $(params.slack-channel-id)
               - name: SNAPSHOT_SPEC
                 value: $(params.SNAPSHOT)
+              - name: PIPELINE_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
             args:
             script: |
               #!/usr/bin/env bash
@@ -444,7 +448,7 @@ spec:
               num_warnings=$(cat "${HOME}/report-json.json" | jq '[.components[].warnings | length] | add')
               num_error_components=$(cat ${HOME}/report-json.json | jq '[.components[] | select(.violations) | .name] | length')
 
-              MESSAGE="EC validation for $application had $num_errors errors and $num_warnings warnings across $num_error_components components"
+              MESSAGE="EC validation for $PIPELINE_NAME had $num_errors errors and $num_warnings warnings across $num_error_components components"
 
               # the last sed is to make yaml look somewhat accepable in markdown
               SUMMARY=$(cat "${HOME}/report-json.json" | jq '[.components[] | select(.violations)] | map({name, containerImage, violations: [.violations[] | .msg ]})' | yq -P | sed 's/$/  /')
@@ -499,5 +503,3 @@ spec:
           - name: webhook-secret
             secret:
               secretName: $(params.slack-secret-name)
-              optional: true
-
