@@ -478,7 +478,7 @@ spec:
               # an attachment with full results
 
               THREAD_ID=$(send_slack_message "$MESSAGE")
-              send_slack_message "$SUMMARY" "$THREAD_ID"
+#             send_slack_message "$SUMMARY" "$THREAD_ID"
               for file_path in ${FILES[@]}; do
                 file_name=$(basename "$file_path")
                 file_size=$(wc -c "$file_path" | awk '{print $1}') 
