@@ -17,10 +17,10 @@ spec:
       default: "scheduled"
     - name: GITHUB_SECRET
       type: string
-      default: "scheduled"
+      default: "rhods-devops-infra"
     - name: GITHUB_SECRET_KEY
       type: string
-      default: "scheduled"
+      default: "readonly-ssh-key"
   results:
     - name: COMPARE_RESULT
       value: "$(tasks.compare.results.COMPARE_RESULT)"
@@ -81,16 +81,23 @@ spec:
             type: string
         results:
           - name: SNAPSHOT_RESULT
+        volumes:
+          - name: github-secret
+            secret:
+              secretName: $(params.GITHUB_SECRET)
+
         steps:
           - name: get-repo
             image: registry.access.redhat.com/ubi8/ubi-minimal
+            volumeMounts:
+              - name: github-secret
+                mountPath: "/etc/secrets"
+                readOnly: true
             env:
               - name: QUAY_SECRET
                 value: "$(params.QUAY_SECRET)"
               - name: QUAY_SECRET_KEY
                 value: "$(params.QUAY_SECRET_KEY)"
-              - name: GITHUB_SECRET
-                value: "$(params.GITHUB_SECRET)"
               - name: GITHUB_SECRET_KEY
                 value: "$(params.GITHUB_SECRET_KEY)"
               - name: APPLICATION
@@ -101,7 +108,7 @@ spec:
               #!/usr/bin/env bash
               microdnf install git python3.12
               eval $(ssh-agent)
-              ssh-add /secret/path
+              ssh-add "/etc/secrets/$GITHUB_SECRET_KEY"
               ssh-keyscan github.com >> ~/.ssh/known_hosts
               mkdir src && cd src
               git remote add origin git@github.com:red-hat-data-services/rhods-devops-infra.git
