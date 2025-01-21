@@ -9,9 +9,23 @@ spec:
     - name: PATTERN
       type: string
       default: "scheduled"
+    - name: QUAY_SECRET
+      type: string
+      default: "scheduled"
+    - name: QUAY_SECRET_KEY
+      type: string
+      default: "scheduled"
+    - name: GITHUB_SECRET
+      type: string
+      default: "scheduled"
+    - name: GITHUB_SECRET_KEY
+      type: string
+      default: "scheduled"
   results:
     - name: COMPARE_RESULT
       value: "$(tasks.compare.results.COMPARE_RESULT)"
+    - name: SNAPSHOT_RESULT
+      value: "$(tasks.snapshot.results.SNAPSHOT_RESULT)"
   tasks:
     - name: compare
       params:
@@ -37,9 +51,57 @@ spec:
                     fieldPath: metadata.labels['pac.test.appstudio.openshift.io/original-prname']
             script: |
               #!/usr/bin/env bash
+              echo "comparing '$SOURCE_PIPELINERUN' against pattern '$PATTERN'"
               matches=$(echo "$SOURCE_PIPELINERUN" | grep "$PATTERN")
               if [ -n "$matches" ]; then
                 echo "true" > $(results.COMPARE_RESULT.path)
               else
                 echo "false" > $(results.COMPARE_RESULT.path)
               fi
+    - name: snapshot
+      params:
+        - name: QUAY_SECRET
+          value: "$(params.QUAY_SECRET)"
+        - name: QUAY_SECRET_KEY
+          value: "$(params.QUAY_SECRET_KEY)"
+        - name: GITHUB_SECRET
+          value: "$(params.GITHUB_SECRET)"
+        - name: GITHUB_SECRET_KEY
+          value: "$(params.GITHUB_SECRET_KEY)"
+      taskSpec:
+        description: generate a snapshot of the most recent nightly build
+        params:
+          - name: QUAY_SECRET
+            type: string
+          - name: QUAY_SECRET_KEY
+            type: string
+          - name: GITHUB_SECRET
+            type: string
+          - name: GITHUB_SECRET_KEY
+            type: string
+        results:
+          - name: SNAPSHOT_RESULT
+        steps:
+          - name: get-repo
+            image: registry.access.redhat.com/ubi8/ubi-minimal
+            env:
+              - name: QUAY_SECRET
+                value: "$(params.QUAY_SECRET)"
+              - name: QUAY_SECRET_KEY
+                value: "$(params.QUAY_SECRET_KEY)"
+              - name: GITHUB_SECRET
+                value: "$(params.GITHUB_SECRET)"
+              - name: GITHUB_SECRET_KEY
+                value: "$(params.GITHUB_SECRET_KEY)"
+              - name: APPLICATION
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.labels['appstudio.openshift.io/application']
+            script: |
+              #!/usr/bin/env bash
+              echo "test" > $(results.SNAPSHOT_RESULT.path)
+              
+    #- name: publish
+    #  params:
+    #    - name: K8S_TOKEN
+    #      value: "($params.K8S_TOKEN)"
