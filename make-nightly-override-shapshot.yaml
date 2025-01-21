@@ -11,7 +11,7 @@ spec:
       default: "scheduled"
   results:
     - name: COMPARE_RESULT
-      value: "$(tasks.compare.results.TEST_OUTPUT)"
+      value: "$(tasks.compare.results.COMPARE_RESULT)"
   tasks:
     - name: compare
       params:
@@ -39,7 +39,7 @@ spec:
               #!/usr/bin/env bash
               matches=$(echo "$SOURCE_PIPELINERUN" | grep "$PATTERN")
               if [ -n "$matches" ]; then
-                echo "true" > $(results.compare_result.path)
+                echo "true" > $(results.COMPARE_RESULT.path)
               else
-                echo "false" > $(results.compare_result.path)
+                echo "false" > $(results.COMPARE_RESULT.path)
               fi
