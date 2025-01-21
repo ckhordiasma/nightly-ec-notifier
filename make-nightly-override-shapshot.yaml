@@ -99,7 +99,21 @@ spec:
                     fieldPath: metadata.labels['appstudio.openshift.io/application']
             script: |
               #!/usr/bin/env bash
+              microdnf install git python3.12
+              eval $(ssh-agent)
+              ssh-add /secret/path
+              ssh-keyscan github.com >> ~/.ssh/known_hosts
+              mkdir src && cd src
+              git remote add origin git@github.com:red-hat-data-services/rhods-devops-infra.git
+              git config core.sparseCheckout true
+              echo tools/snapshot-generator > .git/info/sparse-checkout
+              cd tools/snapshot-generator
+              python3 -m venv venv
+              source venv/bin/activate
+              pip install -r requirements.txt 
+              bash generate-nightly-override-snapshot.sh
               echo "test" > $(results.SNAPSHOT_RESULT.path)
+  
               
     #- name: publish
     #  params:
