@@ -9,7 +9,7 @@ spec:
     - name: PATTERN
       type: string
       default: "scheduled"
-    # should have the keys github-deploy-key, k8s-sa-token, quay-token
+    # should have the keys github-deploy-key, k8s-sa-token, quay-api-token, quay-readonly-token
     - name: SNAPSHOT_TASK_SECRET
       type: string
       default: "snapshot-task-secret"
@@ -108,8 +108,10 @@ spec:
               - name: source
                 mountPath: "/src"
             env:
-              - name: QUAY_TOKEN_NAME
-                value: "quay-token"
+              - name: QUAY_API_TOKEN_NAME
+                value: "quay-api-token"
+              - name: QUAY_RO_TOKEN_NAME
+                value: "quay-readonly-token"
               - name: K8S_SA_TOKEN
                 valueFrom: 
                   secretKeyRef:
@@ -144,7 +146,7 @@ spec:
               kubectl config set-cluster default --server=https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT_HTTPS --certificate-authority="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
               kubectl config set-context snapshot --user=snapshot-sa --cluster=default
               kubectl config use-context snapshot
-              kubectl config view
-              RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_TOKEN_NAME" bash generate-nightly-override-snapshot.sh 2.17.0
+              skopeo login $(cat /etc/secret/$QUAY_RO_TOKEN_NAME | awk -F':' '{print "-u " $1 " -p " $2 " quay.io/rhoai" }') 
+              RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_API_TOKEN_NAME" bash generate-nightly-override-snapshot.sh 2.17.0
               ls nightly-snapshots/snapshot-components              
               echo "test" > $(results.SNAPSHOT_RESULT.path)
