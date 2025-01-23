@@ -9,18 +9,10 @@ spec:
     - name: PATTERN
       type: string
       default: "scheduled"
-    - name: QUAY_SECRET
+    # should have the keys github-deploy-key, k8s-sa-token, quay-token
+    - name: SNAPSHOT_TASK_SECRET
       type: string
-      default: "scheduled"
-    - name: QUAY_SECRET_KEY
-      type: string
-      default: "scheduled"
-    - name: GITHUB_SECRET
-      type: string
-      default: "rhods-devops-infra"
-    - name: GITHUB_SECRET_KEY
-      type: string
-      default: "readonly-ssh-key"
+      default: "snapshot-task-secret"
   results:
     - name: COMPARE_RESULT
       value: "$(tasks.compare.results.COMPARE_RESULT)"
@@ -60,74 +52,97 @@ spec:
               fi
     - name: snapshot
       params:
-        - name: QUAY_SECRET
-          value: "$(params.QUAY_SECRET)"
-        - name: QUAY_SECRET_KEY
-          value: "$(params.QUAY_SECRET_KEY)"
-        - name: GITHUB_SECRET
-          value: "$(params.GITHUB_SECRET)"
-        - name: GITHUB_SECRET_KEY
-          value: "$(params.GITHUB_SECRET_KEY)"
+        - name: SNAPSHOT_TASK_SECRET
+          value: "$(params.SNAPSHOT_TASK_SECRET)"
       taskSpec:
         description: generate a snapshot of the most recent nightly build
         params:
-          - name: QUAY_SECRET
-            type: string
-          - name: QUAY_SECRET_KEY
-            type: string
-          - name: GITHUB_SECRET
-            type: string
-          - name: GITHUB_SECRET_KEY
+          - name: SNAPSHOT_TASK_SECRET 
             type: string
         results:
           - name: SNAPSHOT_RESULT
         volumes:
-          - name: github-secret
+          - name: source
+            emptyDir: {}
+          - name: snapshot-task-secret
             secret:
-              secretName: $(params.GITHUB_SECRET)
+              secretName: $(params.SNAPSHOT_TASK_SECRET)
 
         steps:
           - name: get-repo
             image: registry.access.redhat.com/ubi8/ubi-minimal
             volumeMounts:
-              - name: github-secret
-                mountPath: "/etc/secrets"
+              - name: snapshot-task-secret
+                mountPath: "/etc/secret"
                 readOnly: true
+              - name: source
+                mountPath: "/src"
             env:
-              - name: QUAY_SECRET
-                value: "$(params.QUAY_SECRET)"
-              - name: QUAY_SECRET_KEY
-                value: "$(params.QUAY_SECRET_KEY)"
-              - name: GITHUB_SECRET_KEY
-                value: "$(params.GITHUB_SECRET_KEY)"
+              - name: GITHUB_KEY_NAME
+                value: "github-deploy-key"
+            script: |
+              #!/usr/bin/env bash
+              microdnf install git
+              eval $(ssh-agent)
+              mkdir -p $HOME/.ssh
+              cp "/etc/secret/$GITHUB_KEY_NAME" "$HOME/.ssh/$GITHUB_SECRET_KEY_NAME"
+              chmod 600 "$HOME/.ssh/$GITHUB_KEY_NAME"
+              ssh-add "$HOME/.ssh/$GITHUB_KEY_NAME"
+              ssh-keyscan github.com >> ~/.ssh/known_hosts
+              cd src
+              git init .
+              git remote add origin git@github.com:red-hat-data-services/rhods-devops-infra.git
+              git config core.sparseCheckout true
+              echo tools/snapshot-generator > .git/info/sparse-checkout
+              git fetch origin
+              git checkout main
+          - name: make-snapshot
+            image: registry.access.redhat.com/ubi8/ubi-minimal
+            volumeMounts:
+              - name: snapshot-task-secret
+                mountPath: "/etc/secret"
+                readOnly: true
+              - name: source
+                mountPath: "/src"
+            env:
+              - name: QUAY_TOKEN_NAME
+                value: "quay-token"
+              - name: K8S_SA_TOKEN
+                valueFrom: 
+                  secretKeyRef:
+                    name: $(params.SNAPSHOT_TASK_SECRET)
+                    key: "k8s-sa-token"
               - name: APPLICATION
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.labels['appstudio.openshift.io/application']
+              - name: NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
             script: |
               #!/usr/bin/env bash
-              echo $PATH
-              microdnf install git python3.12 file
-              eval $(ssh-agent)
-              mkdir -p $HOME/.ssh
-              cp "/etc/secrets/$GITHUB_SECRET_KEY" "$HOME/.ssh/$GITHUB_SECRET_KEY"
-              chmod 600 "$HOME/.ssh/$GITHUB_SECRET_KEY"
-              file "$HOME/.ssh/$GITHUB_SECRET_KEY"
-
-              ssh-add "$HOME/.ssh/$GITHUB_SECRET_KEY"
-              ssh-keyscan github.com >> ~/.ssh/known_hosts
-              mkdir src && cd src
-              git init .
-              git remote add origin git@github.com:red-hat-data-services/rhods-devops-infra.git
-              git config core.sparseCheckout true
-              git fetch origin
-              git checkout main
-              echo tools/snapshot-generator > .git/info/sparse-checkout
-              cd tools/snapshot-generator
+              cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
+              [kubernetes]
+              name=Kubernetes
+              baseurl=https://pkgs.k8s.io/core:/stable:/v1.32/rpm/
+              enabled=1
+              gpgcheck=1
+              gpgkey=https://pkgs.k8s.io/core:/stable:/v1.32/rpm/repodata/repomd.xml.key
+              EOF
+              
+              microdnf install python3.12 kubectl
+              cd src/tools/snapshot-generator
               python3 -m venv venv
               source venv/bin/activate
-              pip install -r requirements.txt 
-              bash generate-nightly-override-snapshot.sh
+              ls
+              pwd
+              pip install -r requirements.txt
+              echo "checking for k8s environment variables"
+              # curl -X GET -H "Authorization: Bearer $K8S_SA_TOKEN" --cacert "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"  https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT_HTTPS/api/v1/namespaces/rh-ee-ckodama-tenant/pods?limit=500
+              kubectl --token $K8S_SA_TOKEN get pods 
+              # kubectl --token $K8S_SA_TOKEN get pods
+              # RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_TOKEN_NAME" bash generate-nightly-override-snapshot.sh
               echo "test" > $(results.SNAPSHOT_RESULT.path)
   
               
