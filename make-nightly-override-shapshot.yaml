@@ -140,6 +140,10 @@ spec:
               python3 -m venv venv
               source venv/bin/activate
               pip install -r requirements.txt
+              kubectl config set-credentials snapshot-sa --token=$K8S_SA_TOKEN
+              kubectl config set-context snapshot --user=snapshot-sa
+              kubectl config use-context snapshot
+              kubectl config view
               RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_TOKEN_NAME" bash generate-nightly-override-snapshot.sh 2.17.0
               ls nightly-snapshots/snapshot-components              
               echo "test" > $(results.SNAPSHOT_RESULT.path)
