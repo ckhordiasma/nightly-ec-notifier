@@ -51,6 +51,7 @@ spec:
               else
                 echo "false" > $(results.COMPARE_RESULT.path)
               fi
+              exit 0
     - name: snapshot
       params:
         - name: SNAPSHOT_TASK_SECRET
@@ -83,8 +84,8 @@ spec:
                 value: "github-deploy-key"
             script: |
               #!/usr/bin/env bash
-              set -e
-              microdnf install git
+              set -e 
+              microdnf install git || true # supressing error about missing groupadd command
               eval $(ssh-agent)
               mkdir -p $HOME/.ssh
               cp "/etc/secret/$GITHUB_KEY_NAME" "$HOME/.ssh/$GITHUB_SECRET_KEY_NAME"
@@ -97,7 +98,7 @@ spec:
               git config core.sparseCheckout true
               echo tools/snapshot-generator > .git/info/sparse-checkout
               git fetch origin
-              git checkout main
+              git checkout snapshot-dev
           - name: make-snapshot
             image: registry.access.redhat.com/ubi8/ubi-minimal
             volumeMounts:
@@ -134,20 +135,11 @@ spec:
               gpgkey=https://pkgs.k8s.io/core:/stable:/v1.32/rpm/repodata/repomd.xml.key
               EOF
               
-              microdnf install python3.12 kubectl
+              microdnf install python3.12 kubectl jq skopeo git || true
               cd src/tools/snapshot-generator
               python3 -m venv venv
               source venv/bin/activate
               pip install -r requirements.txt
-              kubectl config set-credentials snapshot-sa --token=$TOKEN
-              kubectl config set-context snapshot --user=snapshot-sa
-              kubectl config use-context snapshot
-              kubectl get pods 
-              RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_TOKEN_NAME" bash generate-nightly-override-snapshot.sh
+              RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_TOKEN_NAME" bash generate-nightly-override-snapshot.sh 2.17.0
+              ls nightly-snapshots/snapshot-components              
               echo "test" > $(results.SNAPSHOT_RESULT.path)
-  
-              
-    #- name: publish
-    #  params:
-    #    - name: K8S_TOKEN
-    #      value: "($params.K8S_TOKEN)"
