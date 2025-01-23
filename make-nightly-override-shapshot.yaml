@@ -108,8 +108,11 @@ spec:
               - name: source
                 mountPath: "/src"
             env:
-              - name: QUAY_API_TOKEN_NAME
-                value: "quay-api-token"
+              - name: QUAY_API_TOKEN
+                valueFrom: 
+                  secretKeyRef:
+                    name: $(params.SNAPSHOT_TASK_SECRET)
+                    key: "quay-api-token"
               - name: QUAY_RO_TOKEN_NAME
                 value: "quay-readonly-token"
               - name: K8S_SA_TOKEN
@@ -147,6 +150,6 @@ spec:
               kubectl config set-context snapshot --user=snapshot-sa --cluster=default
               kubectl config use-context snapshot
               skopeo login $(cat /etc/secret/$QUAY_RO_TOKEN_NAME | awk -F':' '{print "-u " $1 " -p " $2 " quay.io/rhoai" }') 
-              RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_API_TOKEN_NAME" bash generate-nightly-override-snapshot.sh 2.17.0
+              RHOAI_QUAY_API_TOKEN="$QUAY_API_TOKEN" bash generate-nightly-override-snapshot.sh 2.17.0
               ls nightly-snapshots/snapshot-components              
               echo "test" > $(results.SNAPSHOT_RESULT.path)
