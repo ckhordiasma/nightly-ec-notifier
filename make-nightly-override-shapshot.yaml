@@ -43,6 +43,7 @@ spec:
                     fieldPath: metadata.labels['pac.test.appstudio.openshift.io/original-prname']
             script: |
               #!/usr/bin/env bash
+              set -e
               echo "comparing '$SOURCE_PIPELINERUN' against pattern '$PATTERN'"
               matches=$(echo "$SOURCE_PIPELINERUN" | grep "$PATTERN")
               if [ -n "$matches" ]; then
@@ -82,6 +83,7 @@ spec:
                 value: "github-deploy-key"
             script: |
               #!/usr/bin/env bash
+              set -e
               microdnf install git
               eval $(ssh-agent)
               mkdir -p $HOME/.ssh
@@ -122,6 +124,7 @@ spec:
                     fieldPath: metadata.namespace
             script: |
               #!/usr/bin/env bash
+              set -e
               cat <<EOF | tee /etc/yum.repos.d/kubernetes.repo
               [kubernetes]
               name=Kubernetes
@@ -135,14 +138,12 @@ spec:
               cd src/tools/snapshot-generator
               python3 -m venv venv
               source venv/bin/activate
-              ls
-              pwd
               pip install -r requirements.txt
-              echo "checking for k8s environment variables"
-              # curl -X GET -H "Authorization: Bearer $K8S_SA_TOKEN" --cacert "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"  https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT_HTTPS/api/v1/namespaces/rh-ee-ckodama-tenant/pods?limit=500
-              kubectl --token $K8S_SA_TOKEN get pods 
-              # kubectl --token $K8S_SA_TOKEN get pods
-              # RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_TOKEN_NAME" bash generate-nightly-override-snapshot.sh
+              kubectl config set-credentials snapshot-sa --token=$TOKEN
+              kubectl config set-context snapshot --user=snapshot-sa
+              kubectl config use-context snapshot
+              kubectl get pods 
+              RHOAI_QUAY_API_TOKEN="/etc/secret/$QUAY_TOKEN_NAME" bash generate-nightly-override-snapshot.sh
               echo "test" > $(results.SNAPSHOT_RESULT.path)
   
               
