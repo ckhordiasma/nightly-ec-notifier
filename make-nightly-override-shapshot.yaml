@@ -149,7 +149,7 @@ spec:
               kubectl config set-cluster default --server=https://$KUBERNETES_SERVICE_HOST:$KUBERNETES_SERVICE_PORT_HTTPS --certificate-authority="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
               kubectl config set-context snapshot --user=snapshot-sa --cluster=default
               kubectl config use-context snapshot
-              skopeo login $(cat /etc/secret/$QUAY_RO_TOKEN_NAME | awk -F':' '{print "-u " $1 " -p " $2 " quay.io/rhoai" }') 
-              RHOAI_QUAY_API_TOKEN="$QUAY_API_TOKEN" bash generate-nightly-override-snapshot.sh 2.17.0
+              RHOAI_QUAY_API_TOKEN="$QUAY_API_TOKEN" bash make-nightly-snapshots.sh 2.17.0
               ls nightly-snapshots/snapshot-components              
+              kubectl apply -f nightly-snapshots/snapshot-components
               echo "test" > $(results.SNAPSHOT_RESULT.path)
