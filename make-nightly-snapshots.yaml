@@ -19,39 +19,6 @@ spec:
     - name: SNAPSHOT_RESULT
       value: "$(tasks.snapshot.results.SNAPSHOT_RESULT)"
   tasks:
-    - name: compare
-      params:
-        - name: PATTERN
-          value: "$(params.PATTERN)"
-      taskSpec:
-        description: check to see if pipelinerun has PATTERN in it
-        params:
-          - name: PATTERN
-            type: string
-            description: pattern to match source-pipelinerun
-        results:
-          - name: COMPARE_RESULT
-        steps:
-          - name: compare
-            image: registry.access.redhat.com/ubi8/ubi-minimal
-            env:
-              - name: PATTERN
-                value: "$(params.PATTERN)"
-              - name: SOURCE_PIPELINERUN
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.labels['pac.test.appstudio.openshift.io/original-prname']
-            script: |
-              #!/usr/bin/env bash
-              set -e
-              echo "comparing '$SOURCE_PIPELINERUN' against pattern '$PATTERN'"
-              matches=$(echo "$SOURCE_PIPELINERUN" | grep "$PATTERN")
-              if [ -n "$matches" ]; then
-                echo "true" > $(results.COMPARE_RESULT.path)
-              else
-                echo "false" > $(results.COMPARE_RESULT.path)
-              fi
-              exit 0
     - name: snapshot
       params:
         - name: SNAPSHOT_TASK_SECRET
@@ -152,4 +119,4 @@ spec:
               RHOAI_QUAY_API_TOKEN="$QUAY_API_TOKEN" bash make-nightly-snapshots.sh 2.17.0
               ls nightly-snapshots/snapshot-components              
               kubectl apply -f nightly-snapshots/snapshot-components
-              echo "test" > $(results.SNAPSHOT_RESULT.path)
+              cp nightly-snapshots/snapshot-components/*.yaml  $(results.SNAPSHOT_RESULT.path)
